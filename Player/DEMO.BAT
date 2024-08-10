@@ -1,0 +1,2 @@
+flixt /PLAY out.vid
+

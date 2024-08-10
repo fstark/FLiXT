@@ -1,0 +1,2 @@
+void InterruptInstall();
+void InterruptRestore();

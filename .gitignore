@@ -50,3 +50,10 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# FliXT specific ignores
+/TASM
+/TC
+OUT.VID
+Encoder/workfiles
+Encoder/genvid
