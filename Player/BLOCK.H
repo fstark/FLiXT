@@ -1,5 +1,5 @@
 #define BLOCK_SIZE 32768u
-#define BLOCK_COUNT 12
+#define BLOCK_COUNT 16
 
 enum block_state_e
 {

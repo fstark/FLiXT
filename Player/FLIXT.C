@@ -12,6 +12,7 @@
 #include "format.h"
 #include "debug.h"
 #include "dosutil.h"
+#include "stats.h"
 
 /*	-----------------------------------------------------------------------
 	HGC+ info
@@ -89,6 +90,16 @@ int BlockRead( int block_index )
 	blocks[block_index].state = DS_PLAYING;
 
 	return res;
+}
+
+void VideoPreload()
+{
+	int i;
+
+	for (i=0;i!=BLOCK_COUNT;i++)
+	{
+		BlockRead( i );
+	}
 }
 
 void VideoReadLoop( int sync )
@@ -186,6 +197,7 @@ int main( int argc, char **argv )
 		video_fd = VideoOpen( argv[2] );
 		FormatLoad( video_fd, &format );
 		FormatExecuteTweaks( &format, video_fd );
+		VideoPreload();     /* Avoid early stalls */
 		InterruptInstall();
 		VideoReadLoop( 0 );
 		VideoWaitFinish();
@@ -193,6 +205,10 @@ int main( int argc, char **argv )
 		FormatUnexecuteTweaks( &format, video_fd );
 		VideoClose( video_fd );
 		BlockRelease();
+
+		clrscr();
+
+		DumpStats();
 
 		return 0;
 	}

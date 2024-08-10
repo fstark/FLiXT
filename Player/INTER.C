@@ -4,6 +4,7 @@
 #include "inter.h"
 #include "block.h"
 #include "debug.h"
+#include "stats.h"
 
 extern demo( unsigned int offset, unsigned int segment );
 
@@ -43,9 +44,9 @@ again:
     /* If the block we want to play is "READING", we are stalling */
 	if (blocks[curblk].state == DS_READING )
     {
-        return;
+        InterStall( curblk, (BLOCK_SIZE-code-2)/2 );
     }
-    if (*code_ptr != 0xffffu)
+    else if (*code_ptr != 0xffffu)
     {
 #ifndef SKIP_EXEC
         demo( *code_ptr, blocks[curblk].segment );
@@ -53,7 +54,7 @@ again:
        code -= 2;
     }
     else
-    /* If the current code is 0x00, we finished the frame */
+    /* If the current code is 0xffff, we finished the frame */
     {
         /* We put the block back available to read */
         blocks[curblk].state = DS_READING;
