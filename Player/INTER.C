@@ -37,52 +37,24 @@ void PlaybackStep()
 {
     unsigned far *code_ptr;
     
-#ifdef VERBOSE
-    printf( "PlaybackStep() block %d state=%s\n", curblk, blocks[curblk].state==DS_READING?"DS_READING":"DS_PLAYING" );
-#endif
-
-    /* Debug display */
-	(*(char far *)MK_FP( 0xb800, 0x0000 )) = '0'+curblk;
-	(*(char far *)MK_FP( 0xb800, 0x0004 )) = '0'+blocks[curblk].state;
-
 again:
     code_ptr = MK_FP( blocks[curblk].segment, code );
 
     /* If the block we want to play is "READING", we are stalling */
 	if (blocks[curblk].state == DS_READING )
     {
-    	(*(char far *)MK_FP( 0xb800, 0x0000 )) = '*';
         return;
     }
-#ifdef VERBOSE
- printf( "\n EXEC %04x:%04x %04x\n", FP_SEG(code_ptr), FP_OFF(code_ptr), *code_ptr );
-#endif
     if (*code_ptr != 0xffffu)
     {
-        void far *p = demo;
-#ifdef VERBOSE
-        printf( "Will execute demo() at %04X:%04X\n", FP_SEG(p), FP_OFF(p) );
-#endif
-/*
-        while (!kbhit())
-            ;
-*/
-
-/*
-        printf( "  Exec request: %04x:%04x=%04x\n", FP_SEG(code_ptr), FP_OFF(code_ptr), *code_ptr );
-*/
 #ifndef SKIP_EXEC
         demo( *code_ptr, blocks[curblk].segment );
 #endif
-
-       code-=2;
+       code -= 2;
     }
     else
     /* If the current code is 0x00, we finished the frame */
     {
-#ifdef VERBOSE
-        printf( "BLOCK %d => DS_READING\n", curblk );
-#endif
         /* We put the block back available to read */
         blocks[curblk].state = DS_READING;
 
@@ -92,10 +64,9 @@ again:
         goto again;
     }
 
-/*	if (oldfunc)
+    /* Call previous handler */
+	if (oldfunc)
 		(*oldfunc)();
-	(*(char far *)MK_FP( 0xb800, 0x0000 ))++;
-*/
 }
 
 void interrupt func()

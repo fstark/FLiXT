@@ -90,6 +90,8 @@ void FormatUnexecuteTweaks( struct video_format_t *format, int video_fd )
 {
     int i;
 
+    video_fd = video_fd; /* Remove warning from TC */
+
     for (i=0;i!=4;i++)
     {
         struct video_tweak_t *tweak = &format->tweaks[i];

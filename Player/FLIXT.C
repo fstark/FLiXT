@@ -21,22 +21,6 @@
 int video_fd;
 
 
-typedef int (far *videoexec_t)();
-
-void VideoPlay( int block_index )
-{
-	videoexec_t code = (videoexec_t)MK_FP( blocks[block_index].segment, 0 );
-
-	assert( block_index < BLOCK_COUNT );
-#ifdef VERBOSE
-	printf( "PLAY %d at %04x state=%d\n", block_index, blocks[block_index].segment, blocks[block_index].state );
-#endif
-	assert( blocks[block_index].state == DS_PLAYING );
-
-
-	blocks[block_index].state = DS_READING;
-}
-
 int BlockWait( int block_index, enum block_state_e state )
 {
 	do
