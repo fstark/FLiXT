@@ -1,2 +1,2 @@
-flixt /PLAY out.vid
+flixt /PLAY out.vid /blocks=2
 

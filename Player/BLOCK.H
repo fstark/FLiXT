@@ -1,5 +1,5 @@
 #define BLOCK_SIZE 32768u
-#define BLOCK_COUNT 16
+#define MAX_BLOCKS_COUNT 16
 
 enum block_state_e
 {
@@ -14,4 +14,8 @@ struct block_t
 	enum block_state_e state;
 };
 
-extern struct block_t blocks[BLOCK_COUNT];
+extern int blocks_count;
+void SetBlocksCount( int count );
+#define BLOCKS_COUNT (blocks_count)
+#define NEXT_BLOCK( var ) do { var++; if (var==BLOCKS_COUNT) var = 0; } while(0)
+extern struct block_t blocks[MAX_BLOCKS_COUNT];

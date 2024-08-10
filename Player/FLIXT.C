@@ -79,7 +79,7 @@ int BlockRead( int block_index )
 {
 	int res;
 
-	assert( block_index < BLOCK_COUNT );
+	assert( block_index < BLOCKS_COUNT );
 #ifdef VERBOSE
 	printf( "READ %d at %04x state=%d\n", block_index, blocks[block_index].segment, blocks[block_index].state );
 #endif
@@ -96,7 +96,7 @@ void VideoPreload()
 {
 	int i;
 
-	for (i=0;i!=BLOCK_COUNT;i++)
+	for (i=0;i!=BLOCKS_COUNT;i++)
 	{
 		BlockRead( i );
 	}
@@ -116,14 +116,24 @@ void VideoReadLoop( int sync )
 			{
 				PlaybackStep();
 			}
-		i = (i+1)%BLOCK_COUNT;
+		NEXT_BLOCK(i);
+	}
+}
+
+void VideoStatRead()
+{
+	int i;
+	for (i=0;BlockRead( i%BLOCKS_COUNT );i++)
+	{
+		blocks[i%BLOCKS_COUNT].state = DS_READING;	/* Immediate re-usable */
+		printf( "%d ", i );
 	}
 }
 
 void VideoWaitFinish()
 {
 	int i;
-	for (i=0;i!=BLOCK_COUNT;i++)
+	for (i=0;i!=BLOCKS_COUNT;i++)
 	{
 		BlockWait( i, DS_READING );
 	}
@@ -149,41 +159,144 @@ void Usage( const char *name )
 /* -----------------------------------------------------------------------
 	----------------------------------------------------------------------- */
 
+int arg_info = 0;
+int arg_play = 0;
+int arg_sync = 0;
+int arg_stat = 0;
+
+const char *filename = "OUT.VID";
+
+int RegisterArgument( char *name )
+{
+printf( "[%s]\n", name );
+
+	if (!strcmp(name,"INFO"))
+	{
+		arg_info = 1;
+		return 0;
+	}
+	if (!strcmp(name,"PLAY"))
+	{
+		arg_play = 1;
+		return 0;
+	}
+	if (!strcmp(name,"SYNC"))
+	{
+		arg_sync = 1;
+		return 0;
+	}
+	if (!strcmp(name,"STAT"))
+	{
+		arg_stat = 1;
+		return 0;
+	}
+	return 1;
+}
+
+int RegisterArgumentValue( char *name, char *value )
+{
+	if (!strcmp(name,"BLOCKS"))
+	{
+		SetBlocksCount( atoi(value) );
+		return 0;
+	}
+	return 1;
+}
+
+/*
+	Parses an argument in the form of:
+	/NAME
+	or
+	/NAME=VALUE
+	Calls RegisterArgument with the name in the first case
+	and RegisterArgumentValue with the name and value in the second case
+	return value of RegisterArgument/RegisterArgumentValue or 1 if error.
+*/
+int ParseArgument( const char *p )
+{
+	char name[255];
+	char value[255];
+
+	if (strlen(p)>255)
+		return 1;
+
+	if (*p!='/')
+	{
+		filename = p;
+		return 0;
+	}
+
+	p++;
+	
+	/* Copy the name part */
+	{
+		char *q = name;
+		while (*p && *p!='=')
+			*q++ = toupper(*p++);
+		*q = 0;
+	}
+
+	value[0] = 0;
+	/* Copy the value part, if any */
+	if (*p=='=')
+	{
+		p++;
+		{
+			char *q = value;
+			while (*p)
+				*q++ = *p++;
+			*q = 0;
+		}
+	}
+
+	/* Call RegisterArgument or RegisterArgumentValue */
+	if (value[0])
+		return RegisterArgumentValue( name, value );
+	return RegisterArgument( name );
+}
+
 int main( int argc, char **argv )
 {
 	struct video_format_t format;
+	int i;
 
-	/* Parse the argements:
-		/INFO FILENAME : displays the format information
-		/PLAY FILENAME : plays the file
-	*/
-	if (argc!=3)
+	for (i=1;i!=argc;i++)
 	{
+		if (ParseArgument( argv[i] ))
+		{
+			printf( "Unknown argument %s\n", argv[i] );
+			return 1;
+		}
+	}
+
+	if (arg_info + arg_play + arg_sync + arg_stat != 1)
+	{
+		printf( "You must specify one of /INFO, /PLAY, /SYNC or /STAT\n" );
 		Usage( argv[0] );
 		return 1;
 	}
 
-	if (!strcmp(argv[1],"/INFO"))
+	if (arg_info==1)
 	{
-		video_fd = VideoOpen( argv[2] );
+		video_fd = VideoOpen( filename );
 		FormatLoad( video_fd, &format );
 		FormatInfo( &format );
 		VideoClose( video_fd );
 		return 0;
 	}
 
-	if (!strcmp(argv[1],"/SYNC"))
+	if (arg_sync==1)
 	{
 		long ts1;
 		long ts2;
 		BlockInit();
-		video_fd = VideoOpen( argv[2] );
+		video_fd = VideoOpen( filename );
 		FormatLoad( video_fd, &format );
-		FormatExecuteTweaks( &format, video_fd );
+		FormatExecuteTweaks( &format, video_fd, 0 );
 		GetMilli( &ts1 );
 		VideoReadLoop( 1 );
 		GetMilli( &ts2 );
-		FormatUnexecuteTweaks( &format, video_fd );
+		FormatUnexecuteTweaks( &format, video_fd, 0 );
 		VideoClose( video_fd );
 		BlockRelease();
 
@@ -191,18 +304,36 @@ int main( int argc, char **argv )
 		return 0;
 	}
 
-	if (!strcmp(argv[1],"/PLAY"))
+	if (arg_play==1)
 	{
 		BlockInit();
-		video_fd = VideoOpen( argv[2] );
+		video_fd = VideoOpen( filename );
 		FormatLoad( video_fd, &format );
-		FormatExecuteTweaks( &format, video_fd );
+		FormatExecuteTweaks( &format, video_fd, 0 );
 		VideoPreload();     /* Avoid early stalls */
 		InterruptInstall();
 		VideoReadLoop( 0 );
 		VideoWaitFinish();
 		InterruptRestore();
-		FormatUnexecuteTweaks( &format, video_fd );
+		FormatUnexecuteTweaks( &format, video_fd, 0 );
+		VideoClose( video_fd );
+		BlockRelease();
+
+		clrscr();
+
+		DumpStats();
+
+		return 0;
+	}
+
+	if (arg_stat==1)
+	{
+		BlockInit();
+		video_fd = VideoOpen( filename );
+		FormatLoad( video_fd, &format );
+		FormatExecuteTweaks( &format, video_fd, 1 );
+		VideoStatRead();
+		FormatUnexecuteTweaks( &format, video_fd, 1 );
 		VideoClose( video_fd );
 		BlockRelease();
 

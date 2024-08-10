@@ -1,7 +1,16 @@
 #include <dos.h>
 #include "block.h"
 
-struct block_t blocks[BLOCK_COUNT];
+int blocks_count = 16;
+struct block_t blocks[MAX_BLOCKS_COUNT];
+
+void SetBlocksCount( int count )
+{
+	blocks_count = count;
+	if (blocks_count > MAX_BLOCKS_COUNT)
+		blocks_count = MAX_BLOCKS_COUNT;
+	printf( "[INFO] Using %d blocks\n", blocks_count );
+}
 
 /* 	Call DOS int21h to allocate a 64K (4096 paragraph) buffer and return the segment */
 unsigned int BlockAllocate( unsigned byte_size )
@@ -34,7 +43,7 @@ void BlockFree( unsigned int segment )
 void BlockInit()
 {
 	int i;
-	for (i=0;i!=BLOCK_COUNT;i++)
+	for (i=0;i!=BLOCKS_COUNT;i++)
 	{
 		blocks[i].segment = BlockAllocate(BLOCK_SIZE);
 		blocks[i].state = DS_READING;
@@ -46,7 +55,7 @@ void BlockInit()
 void BlockRelease()
 {
 	int i;
-	for (i=0;i!=BLOCK_COUNT;i++)
+	for (i=0;i!=BLOCKS_COUNT;i++)
 	{
 		BlockFree( blocks[i].segment );
 		blocks[i].segment = 0;

@@ -1,5 +1,6 @@
 #include "format.h"
 #include <dos.h>
+#include <stdio.h>
 #include "dosutil.h"
 #include "herc.h"
 #include "debug.h"
@@ -52,7 +53,7 @@ void FormatInfo( struct video_format_t *format )
     printf( "\nBlock size: %04XH (%u) bytes\n", format->block_size, format->block_size );
 }
 
-void FormatExecuteTweaks( struct video_format_t *format, int video_fd )
+void FormatExecuteTweaks( struct video_format_t *format, int video_fd, int fake )
 {
     int i;
 
@@ -65,19 +66,33 @@ void FormatExecuteTweaks( struct video_format_t *format, int video_fd )
         {
             case VT_LOAD:
                 {
-#ifndef SKIP_VIDEO
-                    char far *buffer = MK_FP( tweak->args.load.segment, tweak->args.load.offset );
-#else
-                    unsigned seg = BlockAllocate( tweak->args.load.size );
-                    char far *buffer = MK_FP( seg, 0 );
-#endif
+                    unsigned segment = tweak->args.load.segment;
+                    unsigned offset = tweak->args.load.offset;
+                    char far *buffer;
+                    
+                    printf( "[INFO] Loading %04X bytes at %04X:%04X...", tweak->args.load.size, segment, offset );
+                    fflush( stdout );
+
+                    if (fake)
+                    {
+                        segment = BlockAllocate( tweak->args.load.size );
+                        offset = 0;
+                    }
+
+                    buffer  = MK_FP( segment, offset );
                     ReadData( video_fd, buffer, tweak->args.load.size );
+
+                    if (fake)
+                    {
+                        BlockFree( segment );
+                    }
+
+                    printf( "done\n" );
                 }
                 break;
             case VT_RAMFONT48k:
-#ifndef SKIP_VIDEO
-                HerculesRamfont48K();
-#endif
+                if (!fake)
+                    HerculesRamfont48K();
                 break;
             default:
                 printf( "? Unknown tweak %d\n", tweak->tweak );
@@ -86,7 +101,7 @@ void FormatExecuteTweaks( struct video_format_t *format, int video_fd )
     }
 }
 
-void FormatUnexecuteTweaks( struct video_format_t *format, int video_fd )
+void FormatUnexecuteTweaks( struct video_format_t *format, int video_fd, int fake )
 {
     int i;
 
@@ -102,7 +117,8 @@ void FormatUnexecuteTweaks( struct video_format_t *format, int video_fd )
             case VT_LOAD:
                 break;
             case VT_RAMFONT48k:
-                HerculesTextMode();
+                if (!fake)
+                    HerculesTextMode();
                 break;
             default:
                 printf( "? Unknown tweak %d\n", tweak->tweak );

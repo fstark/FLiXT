@@ -23,11 +23,6 @@ _demo	proc	near
 	push es
 	push si
 
-	mov ax,0b000h
-	mov ds,ax
-	mov di,0
-	mov byte ptr ds:[di],41h
-
 	; To call we need
 	; 1 - ES to the screen
 	mov ax,0b000h

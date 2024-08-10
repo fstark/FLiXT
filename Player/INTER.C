@@ -60,7 +60,7 @@ again:
         blocks[curblk].state = DS_READING;
 
         /* And go the the next one */
-        curblk = (curblk+1)%BLOCK_COUNT;
+        NEXT_BLOCK(curblk);
         code = BLOCK_SIZE-2;
         goto again;
     }
