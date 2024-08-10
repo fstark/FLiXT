@@ -85,7 +85,8 @@ int BlockRead( int block_index )
 #endif
 	assert( blocks[block_index].state == DS_READING );
 
-	res = ReadData( video_fd, MK_FP( blocks[block_index].segment, 0 ), BLOCK_SIZE );
+	res = ReadData( video_fd, MK_FP( blocks[block_index].segment, 0 ), block_size );
+	BytesRead( block_size );
 
 	blocks[block_index].state = DS_PLAYING;
 
@@ -120,6 +121,9 @@ void VideoReadLoop( int sync )
 	}
 }
 
+
+
+
 void VideoStatRead()
 {
 	int i;
@@ -153,7 +157,8 @@ void Usage( const char *name )
 	printf( "Usage:\n\n" );
 	printf( "  %s /PLAY FILENAME\n   -- Plays the FliXT file\n\n", p );
 	printf( "  %s /INFO FILENAME\n   -- Informations about the FliXT\n\n", p );
-	printf( "  %s /SYNC FILENAME\n   -- Plays in a synchronous way for debugging pruposes\n", p );
+	printf( "  %s /SYNC FILENAME\n   -- Plays in a synchronous way for debugging pruposes\n\n", p );
+	printf( "  %s /BENC FILENAME\n   -- Bench the machine against a sepecific FliXT file\n", p );
 }
 
 /* -----------------------------------------------------------------------
@@ -162,9 +167,11 @@ void Usage( const char *name )
 int arg_info = 0;
 int arg_play = 0;
 int arg_sync = 0;
-int arg_stat = 0;
+int arg_benc = 0;
 
 const char *filename = "OUT.VID";
+
+double fps = 18.2;
 
 int RegisterArgument( char *name )
 {
@@ -185,9 +192,9 @@ printf( "[%s]\n", name );
 		arg_sync = 1;
 		return 0;
 	}
-	if (!strcmp(name,"STAT"))
+	if (!strcmp(name,"BENC"))
 	{
-		arg_stat = 1;
+		arg_benc = 1;
 		return 0;
 	}
 	return 1;
@@ -195,9 +202,14 @@ printf( "[%s]\n", name );
 
 int RegisterArgumentValue( char *name, char *value )
 {
-	if (!strcmp(name,"BLOCKS"))
+	if (!strcmp(name,"BUF"))
 	{
 		SetBlocksCount( atoi(value) );
+		return 0;
+	}
+	if (!strcmp(name,"FPS"))
+	{
+		fps = atoi(value);
 		return 0;
 	}
 	return 1;
@@ -265,11 +277,12 @@ int main( int argc, char **argv )
 		if (ParseArgument( argv[i] ))
 		{
 			printf( "Unknown argument %s\n", argv[i] );
+			Usage( argv[0] );
 			return 1;
 		}
 	}
 
-	if (arg_info + arg_play + arg_sync + arg_stat != 1)
+	if (arg_info + arg_play + arg_sync + arg_benc != 1)
 	{
 		printf( "You must specify one of /INFO, /PLAY, /SYNC or /STAT\n" );
 		Usage( argv[0] );
@@ -287,31 +300,31 @@ int main( int argc, char **argv )
 
 	if (arg_sync==1)
 	{
-		long ts1;
-		long ts2;
-		BlockInit();
 		video_fd = VideoOpen( filename );
 		FormatLoad( video_fd, &format );
 		FormatExecuteTweaks( &format, video_fd, 0 );
-		GetMilli( &ts1 );
+		BlockInit();
+		StatsBegin();
 		VideoReadLoop( 1 );
-		GetMilli( &ts2 );
+		StatsEnd();
 		FormatUnexecuteTweaks( &format, video_fd, 0 );
 		VideoClose( video_fd );
 		BlockRelease();
 
-		printf( "FliXT played in : %ldms\n", ts2-ts1 );
+		DumpStats();
+
 		return 0;
 	}
 
 	if (arg_play==1)
 	{
-		BlockInit();
 		video_fd = VideoOpen( filename );
 		FormatLoad( video_fd, &format );
 		FormatExecuteTweaks( &format, video_fd, 0 );
+		BlockInit();
 		VideoPreload();     /* Avoid early stalls */
-		InterruptInstall();
+		InterruptInstall( fps );
+		PlaybackInit();
 		VideoReadLoop( 0 );
 		VideoWaitFinish();
 		InterruptRestore();
@@ -326,18 +339,19 @@ int main( int argc, char **argv )
 		return 0;
 	}
 
-	if (arg_stat==1)
+	if (arg_benc==1)
 	{
-		BlockInit();
 		video_fd = VideoOpen( filename );
 		FormatLoad( video_fd, &format );
+		BlockInit();
+		PlaybackInit();
 		FormatExecuteTweaks( &format, video_fd, 1 );
+		StatsBegin();
 		VideoStatRead();
+		StatsEnd();
 		FormatUnexecuteTweaks( &format, video_fd, 1 );
 		VideoClose( video_fd );
 		BlockRelease();
-
-		clrscr();
 
 		DumpStats();
 

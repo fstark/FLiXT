@@ -1,2 +1,2 @@
-void InterruptInstall();
+void InterruptInstall( double fps );
 void InterruptRestore();

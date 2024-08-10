@@ -4,6 +4,7 @@
 #include "dosutil.h"
 #include "herc.h"
 #include "debug.h"
+#include "block.h"
 
 static char *hardware[] = {
     "MDA (Monochrome Display Adapter)",
@@ -19,6 +20,8 @@ void FormatLoad( int fd, struct video_format_t *format )
 
     /* Display 4096 hex caracters pointed to by format in 16 columns with 4 chars hex offset */
     /* DumpHex( format, HEADER_SIZE ); */
+
+    block_size = format->block_size;    /* #### UGLY AS HELL SIDE EFFECT */
 }
 
 void FormatInfo( struct video_format_t *format )

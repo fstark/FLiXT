@@ -57,7 +57,7 @@ void DOSErr( const char *function, const union REGS *outregs )
 
 /* Read from video_file into a far buffer */
 
-int VideoOpen( char *video_file )
+int VideoOpen( const char *video_file )
 {
 	union REGS inregs;
 	union REGS outregs;
@@ -92,7 +92,7 @@ void VideoClose( int fd )
 	DOSErr( "VideoClose()", &outregs );
 }
 
-int ReadData( int fd, void far *buffer, int size )
+int ReadData( int fd, void far *buffer, unsigned size )
 {
 	union REGS inregs;
 	union REGS outregs;
@@ -113,15 +113,15 @@ int ReadData( int fd, void far *buffer, int size )
 /*
 	Return timestamp in milliseconds
 */
-void GetMilli( long *ms )
+void GetMilli( unsigned long *ms )
 {
 	union REGS inregs;
 	union REGS outregs;
 
-	long hours;
-	long mins;
-	long secs;
-	long huns;
+	unsigned long hours;
+	unsigned long mins;
+	unsigned long secs;
+	unsigned long huns;
 
 	inregs.h.ah = 0x2c;
 	intdos( &inregs, &outregs );

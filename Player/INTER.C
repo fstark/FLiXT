@@ -11,28 +11,49 @@ extern demo( unsigned int offset, unsigned int segment );
 void far interrupt (*oldfunc) ();
 void interrupt func();
 
-void InterruptInstall()
-{
-	oldfunc = getvect(0x1c);
-	setvect(0x1c,func);
-
-	printf( "Interrupt installed, old = %04x:%04x\n", FP_SEG(oldfunc), FP_OFF(oldfunc) );
-	printf( "                     new = %04x:%04x\n", FP_SEG(func), FP_OFF(func) );
-
-	(*(char far *)MK_FP( 0xb800, 0x0000 )) = 'A';
-}
-
-void InterruptRestore()
-{
-	setvect(0x1c,oldfunc);
-	printf( "Interrupt restored\n" );
-}
 
 /* The block we are currently playing */
 static int curblk = 0;
 
 /* The code we are executing */
-static unsigned code = BLOCK_SIZE-2;
+static unsigned code;
+
+#define INTERRUPT 0x08
+
+unsigned int_divider;
+
+void InterruptInstall( double fps )
+{
+    double ticks_per_sec = 1192737.0;
+
+    int_divider = (unsigned)(ticks_per_sec/fps);
+
+    outportb( 0x43, 0x36 );
+    outportb( 0x40, int_divider & 0xff );
+    outportb( 0x40, int_divider >> 8 );
+
+	oldfunc = getvect(INTERRUPT);
+	setvect(INTERRUPT,func);
+
+	printf( "Interrupt installed, old = %04x:%04x\n", FP_SEG(oldfunc), FP_OFF(oldfunc) );
+	printf( "                     new = %04x:%04x\n", FP_SEG(func), FP_OFF(func) );
+}
+
+void InterruptRestore()
+{
+    outportb( 0x43, 0x36 );
+    outportb( 0x40, 0xff );
+    outportb( 0x40, 0xff );
+
+	setvect(INTERRUPT,oldfunc);
+	printf( "Interrupt restored\n" );
+}
+
+void PlaybackInit()
+{
+    curblk = 0;
+    code = block_size-2;
+}
 
 void PlaybackStep()
 {
@@ -44,7 +65,7 @@ again:
     /* If the block we want to play is "READING", we are stalling */
 	if (blocks[curblk].state == DS_READING )
     {
-        InterStall( curblk, (BLOCK_SIZE-code-2)/2 );
+        InterStall( curblk, (block_size-code-2)/2 );
     }
     else if (*code_ptr != 0xffffu)
     {
@@ -61,7 +82,7 @@ again:
 
         /* And go the the next one */
         NEXT_BLOCK(curblk);
-        code = BLOCK_SIZE-2;
+        code = block_size-2;
         goto again;
     }
 

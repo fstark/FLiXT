@@ -2,6 +2,7 @@
 #include "block.h"
 
 int blocks_count = 16;
+unsigned block_size = 0xffff;
 struct block_t blocks[MAX_BLOCKS_COUNT];
 
 void SetBlocksCount( int count )
@@ -45,7 +46,7 @@ void BlockInit()
 	int i;
 	for (i=0;i!=BLOCKS_COUNT;i++)
 	{
-		blocks[i].segment = BlockAllocate(BLOCK_SIZE);
+		blocks[i].segment = BlockAllocate( block_size );
 		blocks[i].state = DS_READING;
 
 		printf( "BLOCK %d at %04x state=%d\n", i, blocks[i].segment, blocks[i].state );
