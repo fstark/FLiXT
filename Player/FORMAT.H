@@ -55,4 +55,4 @@ struct video_format_t
 void FormatLoad( int fd, struct video_format_t *format );
 void FormatInfo( struct video_format_t *format );
 void FormatExecuteTweaks( struct video_format_t *format, int video_fd, int fake );
-void FormatUnexecuteTweaks( struct video_format_t *format, int video_fd, int fake );
+void Cleanup(); /* Unexecutes the tweaks, only once */

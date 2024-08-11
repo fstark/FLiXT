@@ -74,4 +74,8 @@ void HerculesTextMode()
 	set_mode( horiz9, vert14 );
 	outportb( IndexRegister, 0x14 );
 	outportb( DataRegister, 0 );
+
+	/* We have to, as the content of the attributes bytes may have rendered anything already on screen unreadable (black-on-black) */
+	/* This also means that anything that intent to print a message *before* exit needs to switch back to text before */
+	clrscr();
 }

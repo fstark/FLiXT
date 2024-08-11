@@ -56,9 +56,17 @@ void FormatInfo( struct video_format_t *format )
     printf( "\nBlock size: %04XH (%u) bytes\n", format->block_size, format->block_size );
 }
 
+static struct video_format_t *format_cleanup;
+
 void FormatExecuteTweaks( struct video_format_t *format, int video_fd, int fake )
 {
     int i;
+
+    if (!fake)
+    {
+        format_cleanup = format;
+        atexit( Cleanup );
+    }
 
     for (i=0;i!=4;i++)
     {
@@ -97,7 +105,6 @@ void FormatExecuteTweaks( struct video_format_t *format, int video_fd, int fake 
                 if (!fake)
                 {
                     HerculesRamfont48K();
-                    atexit( HerculesTextMode );
                 }
                 break;
             default:
@@ -107,11 +114,9 @@ void FormatExecuteTweaks( struct video_format_t *format, int video_fd, int fake 
     }
 }
 
-void FormatUnexecuteTweaks( struct video_format_t *format, int video_fd, int fake )
+static void FormatUnexecuteTweaks( struct video_format_t *format, int fake )
 {
     int i;
-
-    video_fd = video_fd; /* Remove warning from TC */
 
     for (i=0;i!=4;i++)
     {
@@ -130,5 +135,15 @@ void FormatUnexecuteTweaks( struct video_format_t *format, int video_fd, int fak
                 printf( "? Unknown tweak %d\n", tweak->tweak );
                 break;
         }
+    }
+}
+
+
+void Cleanup()
+{
+    if (format_cleanup)
+    {
+        FormatUnexecuteTweaks( format_cleanup, 0 );
+        format_cleanup = NULL;
     }
 }

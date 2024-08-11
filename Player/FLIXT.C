@@ -177,22 +177,22 @@ int RegisterArgument( char *name )
 {
 printf( "[%s]\n", name );
 
-	if (!strcmp(name,"INFO"))
+	if (!strncmp(name,"INFO",3))
 	{
 		arg_info = 1;
 		return 0;
 	}
-	if (!strcmp(name,"PLAY"))
+	if (!strncmp(name,"PLAY",4))
 	{
 		arg_play = 1;
 		return 0;
 	}
-	if (!strcmp(name,"SYNC"))
+	if (!strncmp(name,"SYNC",3))
 	{
 		arg_sync = 1;
 		return 0;
 	}
-	if (!strcmp(name,"BENC"))
+	if (!strncmp(name,"BENC",4))
 	{
 		arg_benc = 1;
 		return 0;
@@ -305,9 +305,9 @@ int main( int argc, char **argv )
 		FormatExecuteTweaks( &format, video_fd, 0 );
 		BlockInit();
 		StatsBegin();
+		PlaybackInit();
 		VideoReadLoop( 1 );
 		StatsEnd();
-		FormatUnexecuteTweaks( &format, video_fd, 0 );
 		VideoClose( video_fd );
 		BlockRelease();
 
@@ -328,10 +328,8 @@ int main( int argc, char **argv )
 		VideoReadLoop( 0 );
 		VideoWaitFinish();
 		InterruptRestore();
-		FormatUnexecuteTweaks( &format, video_fd, 0 );
 		VideoClose( video_fd );
 		BlockRelease();
-
 		DumpStats();
 
 		return 0;
@@ -347,7 +345,6 @@ int main( int argc, char **argv )
 		StatsBegin();
 		VideoStatRead();
 		StatsEnd();
-		FormatUnexecuteTweaks( &format, video_fd, 1 );
 		VideoClose( video_fd );
 		BlockRelease();
 

@@ -48,6 +48,9 @@ void DOSErr( const char *function, const union REGS *outregs )
 	{
 		const char *err = "Unknown error";
 		int errcode = outregs->x.ax;
+
+		Cleanup();
+
 		if (errcode<sizeof(errors)/sizeof(errors[0]))
 			err = errors[errcode];
 		fprintf( stderr, "%s : DOS ERR=%d (%s)\n", function, errcode, err );
