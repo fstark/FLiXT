@@ -332,8 +332,6 @@ int main( int argc, char **argv )
 		VideoClose( video_fd );
 		BlockRelease();
 
-		clrscr();
-
 		DumpStats();
 
 		return 0;

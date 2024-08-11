@@ -1,7 +1,7 @@
 #include <dos.h>
 #include "block.h"
 
-int blocks_count = 16;
+int blocks_count = 8;
 unsigned block_size = 0xffff;
 struct block_t blocks[MAX_BLOCKS_COUNT];
 

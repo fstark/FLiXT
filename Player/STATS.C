@@ -49,9 +49,7 @@ void DumpStats()
 {
     int i;
 
-    clrscr();
-
-    printf( "Elapsed time: %ld ms\n", ts_end-ts_begin );
+    printf( "\n\nElapsed time: %ld ms\n", ts_end-ts_begin );
 
     if (stall_count != 0)
     {

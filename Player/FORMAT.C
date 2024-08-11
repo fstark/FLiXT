@@ -95,7 +95,10 @@ void FormatExecuteTweaks( struct video_format_t *format, int video_fd, int fake 
                 break;
             case VT_RAMFONT48k:
                 if (!fake)
+                {
                     HerculesRamfont48K();
+                    atexit( HerculesTextMode );
+                }
                 break;
             default:
                 printf( "? Unknown tweak %d\n", tweak->tweak );

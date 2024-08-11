@@ -31,12 +31,13 @@ void InterruptInstall( double fps )
     outportb( 0x43, 0x36 );
     outportb( 0x40, int_divider & 0xff );
     outportb( 0x40, int_divider >> 8 );
-
 	oldfunc = getvect(INTERRUPT);
 	setvect(INTERRUPT,func);
 
 	printf( "Interrupt installed, old = %04x:%04x\n", FP_SEG(oldfunc), FP_OFF(oldfunc) );
 	printf( "                     new = %04x:%04x\n", FP_SEG(func), FP_OFF(func) );
+
+    atexit( InterruptRestore );
 }
 
 void InterruptRestore()
@@ -46,7 +47,6 @@ void InterruptRestore()
     outportb( 0x40, 0xff );
 
 	setvect(INTERRUPT,oldfunc);
-	printf( "Interrupt restored\n" );
 }
 
 void PlaybackInit()

@@ -58,3 +58,5 @@ OUT.VID
 Encoder/workfiles
 Encoder/genvid
 .vscode
+*.BAK
+

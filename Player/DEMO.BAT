@@ -1,2 +1,2 @@
-flixt /PLAY out.vid /blocks=2
+flixt /PLAY out.vid /buf=2 /fps=30
 
