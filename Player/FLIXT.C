@@ -323,8 +323,8 @@ int main( int argc, char **argv )
 		FormatExecuteTweaks( &format, video_fd, 0 );
 		BlockInit();
 		VideoPreload();     /* Avoid early stalls */
-		InterruptInstall( fps );
 		PlaybackInit();
+		InterruptInstall( fps );
 		VideoReadLoop( 0 );
 		VideoWaitFinish();
 		InterruptRestore();

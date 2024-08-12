@@ -9,16 +9,29 @@
 
 int stall_blocks[MAX_STALL];
 int stall_frames[MAX_STALL];
+int last_stall = 0;
 int stall_count = 0;
 
-void InterStall( unsigned block, unsigned frame )
+void InterStall( unsigned block )
 {
-    if (stall_count < MAX_STALL)
+        /* First time is special case */
+    if (stall_count == 0)
+        stall_blocks[last_stall] = block;
+
+    stall_count++;
+
+        /* Look if stall on new block */
+    if (block!=stall_blocks[last_stall])
     {
-        stall_blocks[stall_count] = block;
-        stall_frames[stall_count] = frame;
-        stall_count++;
+        if (last_stall == MAX_STALL-1)
+            return; /* No more room */
+        last_stall++;
+        stall_blocks[last_stall] = block;
+        stall_frames[last_stall] = 0;
     }
+
+        /* One additional stall on this block */
+    stall_frames[last_stall]++;
 }
 
 static long bytes_read = 0;
@@ -43,6 +56,10 @@ void StatsEnd()
         ts_end -= ts_begin;
         ts_begin = 0;
     }
+
+    /* If we recorded some stall, we go to the next */
+    if (stall_frames[last_stall])
+        last_stall++;
 }
 
 void DumpStats()
@@ -53,13 +70,13 @@ void DumpStats()
 
     printf( "\n\nElapsed time: %ld ms\n", ts_end-ts_begin );
 
-    if (stall_count != 0)
+    if (last_stall != 0)
     {
-        if (stall_count == MAX_STALL)
+        if (last_stall == MAX_STALL)
             printf( "WARNING: more than %d stalls\n", MAX_STALL );
 
         printf( "Stalls: \n" );
-        for (i=0;i!=stall_count;i++)
+        for (i=0;i!=last_stall;i++)
         {
             printf( "%03d:%03d ", stall_blocks[i], stall_frames[i] );
         }

@@ -1,4 +1,4 @@
-void InterStall( unsigned block, unsigned frame );
+void InterStall( unsigned block );
 void BytesRead( unsigned bytes );
 void StatsBegin();
 void StatsEnd();

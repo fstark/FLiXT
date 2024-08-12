@@ -13,7 +13,8 @@ void interrupt func();
 
 
 /* The block we are currently playing */
-static int curblk = 0;
+static int curblk = 0;   /* Buffer number */
+static int blocknum = 0; /* Block number */
 
 /* The code we are executing */
 static unsigned code;
@@ -24,13 +25,14 @@ unsigned int_divider;
 
 void InterruptInstall( double fps )
 {
-    double ticks_per_sec = 1192737.0;
+    double ticks_per_sec = 1192737.0; /* #### CHeck the real number */
 
     int_divider = (unsigned)(ticks_per_sec/fps);
 
     outportb( 0x43, 0x36 );
     outportb( 0x40, int_divider & 0xff );
     outportb( 0x40, int_divider >> 8 );
+
 	oldfunc = getvect(INTERRUPT);
 	setvect(INTERRUPT,func);
 
@@ -58,19 +60,19 @@ void PlaybackInit()
 void PlaybackStep()
 {
     unsigned far *code_ptr;
-    
+
 again:
     code_ptr = MK_FP( blocks[curblk].segment, code );
 
     /* If the block we want to play is "READING", we are stalling */
 	if (blocks[curblk].state == DS_READING )
     {
-        InterStall( curblk, (block_size-code-2)/2 );
+	InterStall( blocknum );
     }
     else if (*code_ptr != 0xffffu)
     {
 #ifndef SKIP_EXEC
-        demo( *code_ptr, blocks[curblk].segment );
+	demo( *code_ptr, blocks[curblk].segment );
 #endif
        code -= 2;
     }
@@ -82,6 +84,7 @@ again:
 
         /* And go the the next one */
         NEXT_BLOCK(curblk);
+        blocknum++;
         code = block_size-2;
         goto again;
     }
@@ -95,3 +98,4 @@ void interrupt func()
 {
     PlaybackStep();
 }
+
