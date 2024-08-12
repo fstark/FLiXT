@@ -323,8 +323,8 @@ std::vector<struct change_t> list_changes( const screen_t &s0, const screen_t &s
     }
 
     //  Truncate the list to the 300 most impactful changes
-    if (changes.size()>400)
-        changes.resize(400);
+    if (changes.size()>10000)
+        changes.resize(10000);
     
     return changes;
 }
@@ -505,7 +505,7 @@ class change_assembler
         movsw();
     }
 
-    void add_changes( u_int16_t index, std::vector<u_int16_t> &data )
+    void add_changes( u_int16_t index, std::vector<u_int16_t> data )
     {
             // Add the character
         for (auto &d: data)

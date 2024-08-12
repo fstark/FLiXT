@@ -54,7 +54,7 @@ dkms.conf
 # FliXT specific ignores
 /TASM
 /TC
-OUT.VID
+*.VID
 Encoder/workfiles
 Encoder/genvid
 .vscode
