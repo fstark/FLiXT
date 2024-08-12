@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <cassert>
 
 #include "format.h"
 
@@ -328,6 +329,48 @@ std::vector<struct change_t> list_changes( const screen_t &s0, const screen_t &s
     return changes;
 }
 
+class span_t
+{
+public:
+    u_int16_t start_;
+    u_int16_t end_;
+    std::vector<u_int16_t> data_;
+
+    span_t( const change_t &c ) : start_(c.index), end_(c.index), data_{(u_int16_t)c.char_current} {}
+
+    // Return true if the change is just at the end of the span
+    bool is_adjacent( const change_t &c ) const
+    {
+        return c.index==end_+1;
+    }
+
+    // Add a change to the span
+    void add( const change_t &c )
+    {
+        assert( is_adjacent( c ) );
+        end_ = c.index;
+        data_.push_back( c.char_current );
+    }
+};
+
+//  Constructs a list of spans from an ordered list of changes
+std::vector<span_t> make_spans(const std::vector<change_t>& changes)
+{
+    std::vector<span_t> spans;
+    if (changes.empty()) {
+        return spans;
+    }
+    spans.push_back(span_t(changes[0]));
+    for (size_t i = 1; i < changes.size(); i++) {
+        if (spans.back().is_adjacent(changes[i])) {
+            spans.back().add(changes[i]);
+        } else {
+            spans.push_back(span_t(changes[i]));
+        }
+    }
+    return spans;
+}
+
 class change_assembler
 {
     std::vector<uint16_t> data_;        //  Data to transfer
@@ -337,8 +380,68 @@ class change_assembler
     size_t recover_data;
     size_t recover_instructions;
 
+    std::vector<uint16_t> current_data_;
+
+    bool verbose_ = false;
+
+    void mov_si( uint16_t value )
+    {
+        instructions.push_back( 0xbe );             
+        instructions.push_back( value&0xff );
+        instructions.push_back( value>>8 );
+
+        if (verbose_)
+            printf( "    mov si,0x%04x\n", value );
+    }
+
+    void mov_di( uint16_t value, uint16_t data )
+    {
+        instructions.push_back( 0xbf );             
+        instructions.push_back( value&0xff );
+        instructions.push_back( value>>8 );
+
+        if (verbose_)
+            printf( "    mov di,0x%04x ; 0x%04x\n", value, data );
+    }
+
+    void movsw()
+    {
+        instructions.push_back( 0xa5 );             
+
+        if (verbose_)
+            printf( "    movsw\n" );
+    }
+
+    void retf()
+    {
+        instructions.push_back( 0xcb );             
+        if (verbose_)
+            printf( "    retf\n" );
+    }
+
+    void mov_cx( u_int16_t value )
+    {
+        instructions.push_back( 0xb9 );             
+        instructions.push_back( value&0xff );
+        instructions.push_back( value>>8 );
+
+        if (verbose_)
+            printf( "    mov cx,0x%04x\n", value );
+    }
+
+    void rep_movsw()
+    {
+        instructions.push_back( 0xf3 );             
+        instructions.push_back( 0xa5 );             
+
+        if (verbose_)
+            printf( "    rep movsw\n" );
+    }
+
     void start()
     {
+        current_data_.clear();
+
         recover_data = data_.size();
         recover_instructions = instructions.size();
 
@@ -346,27 +449,110 @@ class change_assembler
         offsets_.push_back( instructions.size() );
 
             //  mov si, start of data
-        instructions.push_back( 0xbe );             
-        instructions.push_back( (data_.size()*2)&0xff );
-        instructions.push_back( (data_.size()*2)>>8 );
+        mov_si( data_.size()*2 );
     }
 
     void add_change( const struct change_t &c )
     {
             // Add the character
+        current_data_.push_back( c.char_current );
         data_.push_back( c.char_current );
             //  mov di, c.index
-        instructions.push_back( 0xbf );             
-        instructions.push_back( (c.index*2)&0xff );
-        instructions.push_back( (c.index*2)>>8 );
+        mov_di( c.index*2, c.char_current );
             //  movsw
-        instructions.push_back( 0xa5 );             
+        movsw();
+    }
+
+    void add_change( u_int16_t index, u_int16_t data )
+    {
+            // Add the character
+        current_data_.push_back( data );
+        data_.push_back( data );
+            //  mov di, c.index
+        mov_di( index*2, data );
+            //  movsw
+        movsw();
+    }
+
+    void add_change2( u_int16_t index, u_int16_t data0, u_int16_t data1 )
+    {
+            // Add the character
+        current_data_.push_back( data0 );
+        current_data_.push_back( data1 );
+        data_.push_back( data0 );
+        data_.push_back( data1 );
+            //  mov di, c.index
+        mov_di( index*2, data0 );
+            //  movsw
+        movsw();
+        movsw();
+    }
+
+    void add_change3( u_int16_t index, u_int16_t data0, u_int16_t data1, u_int16_t data2 )
+    {
+            // Add the character
+        current_data_.push_back( data0 );
+        current_data_.push_back( data1 );
+        current_data_.push_back( data2 );
+        data_.push_back( data0 );
+        data_.push_back( data1 );
+        data_.push_back( data2 );
+            //  mov di, c.index
+        mov_di( index*2, data0 );
+            //  movsw
+        movsw();
+        movsw();
+        movsw();
+    }
+
+    void add_changes( u_int16_t index, std::vector<u_int16_t> &data )
+    {
+            // Add the character
+        for (auto &d: data)
+        {
+            current_data_.push_back( d );
+            data_.push_back( d );
+        }
+            //  mov di, c.index
+        mov_di( index*2, data[0] );
+            //  mov cx, data.size()
+        mov_cx( data.size() );
+            //  rep_movsw
+        rep_movsw();
+    }
+
+    void add_span( const span_t &s )
+    {
+        if (s.end_==s.start_)
+        {
+            add_change( s.start_, s.data_[0] );
+        }
+        else if (s.end_-s.start_==1)
+        {
+            add_change2( s.start_, s.data_[0], s.data_[1] );
+        }
+        else if (s.end_-s.start_==2)
+        {
+            add_change3( s.start_, s.data_[0], s.data_[1], s.data_[2] );
+        }
+        else
+        {
+            add_changes( s.start_, s.data_ );
+        }
     }
 
     void stop()
     {
             //  retf
-        instructions.push_back( 0xcb );             
+        retf();
+
+            //  Add the data
+        // data_.insert( std::end(data_), std::begin(current_data_), std::end(current_data_) );
+
+#if DUMP
+        printf( "\n\n\n\n" );
+#endif
+        // Print content
     }
 
     size_t calc_size() const
@@ -382,11 +568,12 @@ class change_assembler
     }
 
 public:
-    bool add_changes( const std::vector<struct change_t> &changes )
+    bool add_spans( const std::vector<span_t> &spans, bool verbose=false )
     {
+        verbose_ = verbose;
         start();
-        for (auto &c: changes)
-            add_change( c );
+        for (auto &c: spans)
+            add_span( c );
         stop();
         if (calc_size()>32768)
         {
@@ -428,7 +615,8 @@ printf( "Generated block of %d bytes\n", result.size() );
     }
 };
 
-// Mains takes to optional arguments
+
+// Main takes two optional arguments
 // -in filename : input filename (default in.txt)
 // -out filename : output filename (default OUT.VID)
 int main( int argc, char **argv )
@@ -521,6 +709,10 @@ printf( "Reading from %s, writing to %s\n", in_filename.c_str(), out_filename.c_
 
     WriteHGPHeader( video_file, font_data.data() );
 
+    std::vector<int> replacement(num_chars, 0);
+    // Fill replacements with 0 to num_chars
+    std::iota(replacement.begin(), replacement.end(), 0);
+
     //  Find all chars that have a distance of 0
     // std::vector<int> zero_distance;
     int count_identical = 0;
@@ -535,6 +727,7 @@ printf( "Reading from %s, writing to %s\n", in_filename.c_str(), out_filename.c_
                 // video_chars[i].dump();
                 // video_chars[j].dump();
                 count_identical++;
+                replacement[i] = j;
                 break;
             }
         }
@@ -573,6 +766,8 @@ printf( "Reading from %s, writing to %s\n", in_filename.c_str(), out_filename.c_
     //  Reads a screen of data from stdin
     change_assembler ca;
 
+    long total_bytes = 0;
+
     while (in_file)
     {
             //  Read screen
@@ -580,6 +775,7 @@ printf( "Reading from %s, writing to %s\n", in_filename.c_str(), out_filename.c_
         for (int i=0;i!=w*h;i++)
         {
             in_file >> s[i];
+            s[i] = replacement[s[i]];
         }
 
         // s.dump();
@@ -588,17 +784,22 @@ printf( "Reading from %s, writing to %s\n", in_filename.c_str(), out_filename.c_
 
         printf( "Frame %4d - ", frame );
         auto changes = list_changes( s0, s1, s, frame==271 );
+        // Sorts the change by index
+        std::sort( changes.begin(), changes.end(), []( const struct change_t &a, const struct change_t &b ) { return a.index<b.index; } );
+        // Generates the spans
+        auto spans = make_spans(changes);
         s1 = s0;
         apply_changes( s1, changes );
             //  Write screen (oops for the endianess...)
         // video_file.write( (char *)s1.get_uint16(), w*h*2 );
 
-        if (!ca.add_changes( changes ))
+        if (!ca.add_spans( spans, frame==271 ))
         {
             auto data = ca.as_vector( 0x8000 );
             video_file.write( (char *)data.data(), 0x8000 );
+            total_bytes += 0x8000;
             ca = change_assembler();
-            ca.add_changes( changes );
+            ca.add_spans( spans );
         }
 
         write_grayscale_png(w*8, h*8, s1.make_image(), "/tmp/out/frame" + std::to_string(frame) + ".png");
@@ -615,8 +816,10 @@ printf( "Reading from %s, writing to %s\n", in_filename.c_str(), out_filename.c_
     //  Write the last changes
     auto data = ca.as_vector( 0x8000 );
     video_file.write( (char *)data.data(), 0x8000 );
+    total_bytes += 0x8000;
 
     printf( "\nTotal changes: %ld, average change: %f, average screen change: %02.2f%%\n", total_changes, (double)total_changes/frame, ((double)total_changes/frame)/(w*h)*100 );
+    printf( "  Average bytes per frame: %d\n", total_bytes/frame );
 
     // Close the file
     video_file.close();
