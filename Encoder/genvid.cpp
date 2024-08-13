@@ -6,6 +6,9 @@
 
 #include "format.h"
 
+int s_block_size = 32768;
+int s_max_changes = 300;
+
 void WriteHGPHeader(std::ofstream& fp, const uint8_t* font48)
 {
     struct video_format_t format;
@@ -29,7 +32,7 @@ void WriteHGPHeader(std::ofstream& fp, const uint8_t* font48)
 */
 
     format.tweaks[2].tweak = VT_DONE;
-    format.block_size = 32768;
+    format.block_size = s_block_size;
 
     printf( "Writing header %d bytes\n", sizeof(format) );
 
@@ -322,9 +325,9 @@ std::vector<struct change_t> list_changes( const screen_t &s0, const screen_t &s
         }
     }
 
-    //  Truncate the list to the 300 most impactful changes
-    if (changes.size()>10000)
-        changes.resize(10000);
+    //  Truncate the list to the s_max_changes most impactful changes
+    if (changes.size()>s_max_changes)
+        changes.resize(s_max_changes);
     
     return changes;
 }
@@ -575,7 +578,7 @@ public:
         for (auto &c: spans)
             add_span( c );
         stop();
-        if (calc_size()>32768)
+        if (calc_size()>s_block_size)
         {
             revert();
             return false;
@@ -631,6 +634,7 @@ int main( int argc, char **argv )
     //  Parse arguments
     std::string in_filename = "in.txt";
     std::string out_filename = "OUT.VID";
+
     for (int i=1;i!=argc;i++)
     {
         if (!strcmp(argv[i], "-in"))
@@ -643,7 +647,22 @@ int main( int argc, char **argv )
             if (i+1<argc)
                 out_filename = argv[i+1];
         }
+        if (!strcmp(argv[i], "--block"))
+        {
+            if (i+1<argc)
+                s_block_size = atoi(argv[i+1]);
+        }
+        if (!strcmp(argv[i], "--changes"))
+        {
+            if (i+1<argc)
+                s_max_changes = atoi(argv[i+1]);
+        }
     }
+
+    printf( "input file: %s\n", in_filename.c_str() );
+    printf( "output file: %s\n", out_filename.c_str() );
+    printf( "block size: %d\n", s_block_size );
+    printf( "max changes: %d\n", s_max_changes );
 
     // Open IN.VID file for writing
     std::ofstream video_file(out_filename, std::ios::binary | std::ios::out);
@@ -795,11 +814,16 @@ printf( "Reading from %s, writing to %s\n", in_filename.c_str(), out_filename.c_
 
         if (!ca.add_spans( spans, frame==271 ))
         {
-            auto data = ca.as_vector( 0x8000 );
-            video_file.write( (char *)data.data(), 0x8000 );
-            total_bytes += 0x8000;
+            auto data = ca.as_vector( s_block_size );
+            video_file.write( (char *)data.data(), s_block_size );
+            total_bytes += s_block_size;
             ca = change_assembler();
-            ca.add_spans( spans );
+
+            if (!ca.add_spans( spans ))
+            {
+                std::cerr << "Error: single change does not fit in block, need to increase block size" << std::endl;
+                return 1;
+            }
         }
 
         write_grayscale_png(w*8, h*8, s1.make_image(), "/tmp/out/frame" + std::to_string(frame) + ".png");
@@ -814,9 +838,9 @@ printf( "Reading from %s, writing to %s\n", in_filename.c_str(), out_filename.c_
     }
 
     //  Write the last changes
-    auto data = ca.as_vector( 0x8000 );
-    video_file.write( (char *)data.data(), 0x8000 );
-    total_bytes += 0x8000;
+    auto data = ca.as_vector( s_block_size );
+    video_file.write( (char *)data.data(), s_block_size );
+    total_bytes += s_block_size;
 
     printf( "\nTotal changes: %ld, average change: %f, average screen change: %02.2f%%\n", total_changes, (double)total_changes/frame, ((double)total_changes/frame)/(w*h)*100 );
     printf( "  Average bytes per frame: %d\n", total_bytes/frame );
